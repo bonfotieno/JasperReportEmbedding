@@ -1,6 +1,9 @@
 package org.botien;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -63,6 +66,16 @@ public class Main {
         return mapper.readValue(jsonString, Map.class);
     }
 
+    private static void openHtmlFile(String outputFile) throws IOException {
+        File file = new File(outputFile);
+        if (file.exists()) {
+            URI uri = file.toURI();
+            java.awt.Desktop.getDesktop().browse(uri);
+        } else {
+            throw new FileNotFoundException("File not found: " + outputFile);
+        }
+    }
+
     private static CompletableFuture<String> sendRequest(OkHttpClient client, Request request) {
         CompletableFuture<String> future = new CompletableFuture<>();
 
@@ -89,6 +102,10 @@ public class Main {
     }
 
     private static void downloadTheReportOutput(OkHttpClient client, String cookies, String outputResourceURL, String authHeader){
+
+        String username = System.getProperty("user.name");
+        String outputFile = String.format("/home/%s/Documents/report_jasper.html", username);
+
         Request outputResourceRequest = new Request.Builder()
                 .url(outputResourceURL)
                 .addHeader("content-type", "application/xml")
@@ -97,11 +114,17 @@ public class Main {
                 .addHeader("Cookie", cookies)
                 .build();
 
-        System.out.println(outputResourceURL + " " + authHeader + " " + cookies);
         try (Response response = client.newCall(outputResourceRequest).execute()) {
 
             System.out.println("\nDownload Response: " + response.code());
-            System.out.println(response.body().string());
+            //  System.out.println(response.body().string());
+
+            try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                fos.write(response.body().bytes());
+            }
+
+            openHtmlFile(outputFile);
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
